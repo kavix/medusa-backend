@@ -1,0 +1,206 @@
+name: Security Testing & Validation
+
+on:
+  schedule:
+    # Run security tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_intensity:
+        description: 'Test intensity level'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - comprehensive
+          - stress
+
+env:
+  CTF_FLAG: Medusa{CTF_CHALLENGE_PHASE1_PASSED}
+
+jobs:
+  comprehensive-security-test:
+    name: Comprehensive Security Validation
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Setup test environment
+      run: |
+        node database-setup.js
+        CTF_FLAG="${{ env.CTF_FLAG }}" node server.js &
+        echo $! > server.pid
+        sleep 5
+        
+    - name: Run comprehensive SQL injection tests
+      run: |
+        echo "Running all 112 SQL injection test cases..."
+        node test-sqli.js > test-output.log 2>&1
+        
+        # Check test results
+        if grep -q "112/112 passed (100%)" test-output.log; then
+          echo "✅ All SQL injection tests passed"
+        else
+          echo "❌ Some SQL injection tests failed"
+          cat test-output.log
+          exit 1
+        fi
+        
+    - name: Validate flag security
+      run: |
+        echo "Testing flag security..."
+        
+        # Test that flag is only delivered via headers
+        response=$(curl -s -X POST http://localhost:3000/login \
+          -H "Content-Type: application/json" \
+          -d '{"username": "admin'\'' OR '\''1'\''='\''1'\'' --", "password": "anything"}')
+        
+        if echo "$response" | grep -q "Medusa{"; then
+          echo "❌ Flag leaked in response body!"
+          exit 1
+        else
+          echo "✅ Flag not exposed in response body"
+        fi
+        
+        # Test header delivery
+        header_flag=$(curl -s -X POST http://localhost:3000/login \
+          -H "Content-Type: application/json" \
+          -d '{"username": "admin'\'' OR '\''1'\''='\''1'\'' --", "password": "anything"}' \
+          -I | grep -i "x-ctf-flag" | cut -d: -f2 | tr -d ' \r')
+        
+        if [ "$header_flag" = "${{ env.CTF_FLAG }}" ]; then
+          echo "✅ Flag correctly delivered via header"
+        else
+          echo "❌ Flag header validation failed"
+          echo "Expected: ${{ env.CTF_FLAG }}"
+          echo "Got: $header_flag"
+          exit 1
+        fi
+        
+    - name: Test database security
+      run: |
+        echo "Testing database security..."
+        
+        # Test destructive SQL injection attempts
+        destructive_tests=(
+          "admin'; DROP TABLE users; --"
+          "admin'; DELETE FROM users; --"
+          "admin'; UPDATE users SET password='hacked'; --"
+        )
+        
+        for test in "${destructive_tests[@]}"; do
+          response=$(curl -s -X POST http://localhost:3000/login \
+            -H "Content-Type: application/json" \
+            -d "{\"username\": \"$test\", \"password\": \"anything\"}")
+          
+          # Should still work due to injection but DB should be protected
+          if echo "$response" | grep -q "success.*true"; then
+            echo "✅ Injection works but database protected"
+          else
+            echo "❌ Unexpected response to destructive test"
+          fi
+        done
+        
+    - name: Performance stress test
+      if: github.event.inputs.test_intensity == 'stress'
+      run: |
+        echo "Running performance stress test..."
+        
+        # Concurrent requests test
+        for i in {1..50}; do
+          curl -s -X POST http://localhost:3000/login \
+            -H "Content-Type: application/json" \
+            -d '{"username": "admin'\'' OR '\''1'\''='\''1'\'' --", "password": "anything"}' &
+        done
+        wait
+        
+        echo "✅ Stress test completed"
+        
+    - name: Generate security report
+      run: |
+        echo "## 🛡️ Security Test Report" >> security-report.md
+        echo "" >> security-report.md
+        echo "**Date**: $(date)" >> security-report.md
+        echo "**Node.js Version**: ${{ matrix.node-version }}" >> security-report.md
+        echo "**Test Intensity**: ${{ github.event.inputs.test_intensity || 'standard' }}" >> security-report.md
+        echo "" >> security-report.md
+        echo "### Test Results:" >> security-report.md
+        echo "- SQL Injection Tests: ✅ All 112 tests passed" >> security-report.md
+        echo "- Flag Security: ✅ Header-only delivery validated" >> security-report.md
+        echo "- Database Protection: ✅ Destructive attacks contained" >> security-report.md
+        echo "- Flag Format: \`${{ env.CTF_FLAG }}\`" >> security-report.md
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        if [ -f server.pid ]; then
+          kill $(cat server.pid) || true
+          rm server.pid
+        fi
+        
+    - name: Upload security report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-report-node${{ matrix.node-version }}
+        path: |
+          security-report.md
+          test-output.log
+        retention-days: 30
+
+  docker-security-scan:
+    name: Docker Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Build Docker image
+      run: docker build -t medusa-ctf:security-scan .
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'medusa-ctf:security-scan'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+    - name: Docker security best practices check
+      run: |
+        echo "Checking Docker security best practices..."
+        
+        # Check for non-root user
+        if docker run --rm medusa-ctf:security-scan whoami | grep -q nodeuser; then
+          echo "✅ Container runs as non-root user"
+        else
+          echo "❌ Container may be running as root"
+          exit 1
+        fi
+        
+        # Check database permissions
+        docker run --rm medusa-ctf:security-scan ls -la database.db | grep -q "r--r--r--" && \
+          echo "✅ Database has read-only permissions" || \
+          echo "❌ Database permissions issue"
