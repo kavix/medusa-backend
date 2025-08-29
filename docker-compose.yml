@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  vulnerable-ctf-app:
+    build: .
+    ports:
+      - "3000:3000"
+    container_name: ctf-challenge
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - CTF_FLAG=Medusa{CTF_CHALLENGE_PHASE1_PASSED}
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # We need write access for SQLite
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const options = { hostname: 'localhost', port: 3000, path: '/', method: 'GET' }; const req = http.request(options, (res) => { if (res.statusCode === 200) { process.exit(0); } else { process.exit(1); } }); req.on('error', () => { process.exit(1); }); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
