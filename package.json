@@ -6,11 +6,19 @@
     "scripts": {
         "start": "node server.js",
         "setup": "node database-setup.js",
-        "dev": "CTF_FLAG='Medusa{CTF_CHALLENGE_PHASE1_PASSED}' node server.js"
+        "dev": "CTF_FLAG='Medusa{CTF_CHALLENGE_PHASE1_PASSED}' node server.js",
+        "build": "vite build",
+        "dev-frontend": "vite",
+        "preview": "vite preview",
+        "build-and-start": "npm run build && npm run start"
     },
     "dependencies": {
+        "@vitejs/plugin-react": "^5.0.2",
         "express": "^4.18.2",
-        "sqlite3": "^5.1.6"
+        "react": "^19.1.1",
+        "react-dom": "^19.1.1",
+        "sqlite3": "^5.1.6",
+        "vite": "^7.1.4"
     },
     "keywords": [
         "ctf",

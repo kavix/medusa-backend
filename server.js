@@ -11,7 +11,7 @@ app.disable('x-powered-by');
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'src')));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Database connection
 const db = new sqlite3.Database('database.db', (err) => {
@@ -24,7 +24,7 @@ const db = new sqlite3.Database('database.db', (err) => {
 
 // Serve the main page
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'index.html'));
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // VULNERABLE LOGIN ENDPOINT - INTENTIONALLY SUSCEPTIBLE TO SQL INJECTION

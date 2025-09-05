@@ -17,6 +17,9 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy application source code
 COPY . .
 
+# Build React frontend
+RUN npm run build
+
 # Run database setup as root (needed for file creation)
 RUN node database-setup.js
 
