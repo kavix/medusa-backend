@@ -23,27 +23,22 @@ function App() {
             const data = await response.json()
 
             if (response.ok && data.success) {
-                setMessage(data.message || 'Login successful!')
+                setMessage(data.message || 'Access Granted')
                 setMessageType('success')
 
-                // Check for CTF flag in response headers
-                const ctfFlag = response.headers.get('X-CTF-Flag')
-                if (ctfFlag) {
-                    setTimeout(() => {
-                        setMessage(prev => prev + `\n\n🏆 CTF Flag: ${ctfFlag}`)
-                    }, 1000)
-                }
+                // Don't display the flag - it's only in response headers for advanced users
+                // The flag is sent as X-CTF-Flag header for those who know to look
 
                 // Redirect after 3 seconds
                 setTimeout(() => {
                     window.location.href = 'https://kodegas.com'
                 }, 3000)
             } else {
-                setMessage(data.message || 'Login failed')
+                setMessage(data.message || 'Access Denied')
                 setMessageType('error')
             }
         } catch (error) {
-            setMessage('Network error')
+            setMessage('Connection Error: Could not reach the server.')
             setMessageType('error')
         } finally {
             setLoading(false)
@@ -53,13 +48,13 @@ function App() {
     return (
         <div className="app-container">
             <h1 className="title">Medusa 2.0</h1>
-            <h3 className="subtitle">Registration Challenge</h3>
+            <p className="subtitle">Secure Login Portal</p>
 
             <form className="login-form" onSubmit={handleSubmit}>
                 <input
                     type="text"
                     className="form-input"
-                    placeholder="Username"
+                    placeholder="Enter username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -67,7 +62,7 @@ function App() {
                 <input
                     type="password"
                     className="form-input"
-                    placeholder="Password"
+                    placeholder="Enter password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -77,23 +72,19 @@ function App() {
                     className="login-button"
                     disabled={loading}
                 >
-                    {loading ? 'LOGGING IN...' : 'LOGIN'}
+                    {loading ? 'Authenticating...' : 'Sign In'}
                 </button>
             </form>
 
             {message && (
                 <div className={`message ${messageType}`}>
-                    {message.split('\n').map((line, index) => (
-                        <div key={index} className={line.includes('🏆') ? 'flag' : ''}>
-                            {line}
-                        </div>
-                    ))}
+                    {message}
                 </div>
             )}
-
-            <p className="hint">
-                <em>Hint: Try SQL injection to login as admin.</em>
-            </p>
+            
+            <div className="hint">
+                <small>💡 Security researchers: Check for common vulnerabilities</small>
+            </div>
         </div>
     )
 }
