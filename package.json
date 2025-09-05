@@ -6,10 +6,7 @@
     "scripts": {
         "start": "node server.js",
         "setup": "node database-setup.js",
-        "test": "node test-sqli.js",
-        "dev": "CTF_FLAG='Medusa{CTF_CHALLENGE_PHASE1_PASSED}' node server.js",
-        "docker:build": "docker build -t medusa-ctf .",
-        "docker:run": "docker run -d -p 3000:3000 -e CTF_FLAG='Medusa{CTF_CHALLENGE_PHASE1_PASSED}' --name medusa-ctf medusa-ctf"
+        "dev": "CTF_FLAG='Medusa{CTF_CHALLENGE_PHASE1_PASSED}' node server.js"
     },
     "dependencies": {
         "express": "^4.18.2",

@@ -1,20 +1,17 @@
-name: Build & Publish Docker Images
+name: Build & Publish Docker Image
 
 on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
-  release:
-    types: [ published ]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kavix/medusa-backend
-  CTF_FLAG: Medusa{CTF_CHALLENGE_PHASE1_PASSED}
 
 jobs:
   build-and-push:
-    name: Build and Push Docker Image
+    name: Build and Push to GHCR
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,9 +38,7 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=branch
-          type=ref,event=pr
           type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
           type=raw,value=latest,enable={{is_default_branch}}
           
     - name: Build and push Docker image
@@ -57,116 +52,8 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
-    - name: Test published image
-      run: |
-        # Pull and test the published image
-        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-        
-        # Run container
-        docker run -d -p 3000:3000 --name test-published \
-          -e CTF_FLAG="${{ env.CTF_FLAG }}" \
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-        
-        sleep 10
-        
-        # Test functionality
-        response=$(curl -s -X POST http://localhost:3000/login \
-          -H "Content-Type: application/json" \
-          -d '{"username": "admin'\'' OR '\''1'\''='\''1'\'' --", "password": "anything"}' \
-          -i)
-        
-        if echo "$response" | grep -q "X-CTF-Flag: ${{ env.CTF_FLAG }}"; then
-          echo "✅ Published image works correctly"
-        else
-          echo "❌ Published image test failed"
-          echo "$response"
-          exit 1
-        fi
-        
-        # Cleanup
-        docker stop test-published
-        docker rm test-published
-        
-    - name: Generate deployment instructions
-      if: github.event_name == 'release'
-      run: |
-        cat << EOF > deployment-instructions.md
-        # 🚀 Medusa CTF Challenge Deployment
-        
-        ## Quick Start with Published Image
-        
-        \`\`\`bash
-        # Pull the latest image
-        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-        
-        # Run the CTF challenge
-        docker run -d -p 3000:3000 \\
-          -e CTF_FLAG="${{ env.CTF_FLAG }}" \\
-          --name medusa-ctf \\
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-        
-        # Access the challenge
-        open http://localhost:3000
-        \`\`\`
-        
-        ## Using Docker Compose
-        
-        \`\`\`yaml
-        version: '3.8'
-        services:
-          medusa-ctf:
-            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ports:
-              - "3000:3000"
-            environment:
-              - CTF_FLAG=${{ env.CTF_FLAG }}
-            security_opt:
-              - no-new-privileges:true
-            deploy:
-              resources:
-                limits:
-                  memory: 512M
-                  cpus: '0.5'
-        \`\`\`
-        
-        ## Challenge Information
-        
-        - **Flag**: \`${{ env.CTF_FLAG }}\`
-        - **Vulnerability**: SQL Injection
-        - **Flag Delivery**: HTTP Response Headers (X-CTF-Flag)
-        - **Database**: SQLite with read-only protection
-        - **Security**: Non-root container execution
-        
-        ## Testing
-        
-        \`\`\`bash
-        # Test SQL injection
-        curl -X POST http://localhost:3000/login \\
-          -H "Content-Type: application/json" \\
-          -d '{"username": "admin'\'' OR '\''1'\''='\''1'\'' --", "password": "anything"}' \\
-          -v
-        \`\`\`
-        
-        Look for the flag in the \`X-CTF-Flag\` response header!
-        EOF
-        
-    - name: Upload deployment instructions
-      if: github.event_name == 'release'
-      uses: actions/upload-artifact@v4
-      with:
-        name: deployment-instructions
-        path: deployment-instructions.md
-        
-    - name: Update deployment summary
+    - name: Image published successfully
       run: |
         echo "## 🐳 Docker Image Published" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
         echo "**Tags**: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Quick Deploy:" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-        echo "docker run -d -p 3000:3000 \\" >> $GITHUB_STEP_SUMMARY
-        echo "  -e CTF_FLAG=\"${{ env.CTF_FLAG }}\" \\" >> $GITHUB_STEP_SUMMARY
-        echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
