@@ -38,23 +38,45 @@ jobs:
         
     - name: Deploy to Azure App Service
       run: |
-        # Generate unique app name based on branch and timestamp
+        # Use fixed app name for updates instead of creating new ones
         BRANCH_NAME=${GITHUB_REF##*/}
         BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
-        APP_NAME="medusa-ctf-${BRANCH_SAFE}-$(date +%s)"
+        
+        # Use fixed app name for main branch, branch-specific for others
+        if [ "$BRANCH_SAFE" = "main" ]; then
+          APP_NAME="${{ env.AZURE_WEBAPP_NAME }}-production"
+        else
+          APP_NAME="${{ env.AZURE_WEBAPP_NAME }}-${BRANCH_SAFE}"
+        fi
+        
+        echo "Using app name: $APP_NAME"
         
         # Create resource group if it doesn't exist
         az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
         
-        # Deploy using ARM template
-        az deployment group create \
-          --name $APP_NAME \
-          --resource-group ${{ env.RESOURCE_GROUP }} \
-          --template-file .azure/azure-deploy.json \
-          --parameters \
-            appName=$APP_NAME \
-            planName=medusa-ctf-plan \
-            location=${{ env.LOCATION }}
+        # Check if app exists, update or create accordingly
+        if az webapp show --name $APP_NAME --resource-group ${{ env.RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "App $APP_NAME exists, updating deployment..."
+          # Update existing app with new Docker image
+          az webapp config container set \
+            --name $APP_NAME \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --docker-custom-image-name ghcr.io/kavix/medusa-backend:latest
+          
+          # Restart the app to ensure new image is pulled
+          az webapp restart --name $APP_NAME --resource-group ${{ env.RESOURCE_GROUP }}
+        else
+          echo "App $APP_NAME doesn't exist, creating new app..."
+          # Deploy using ARM template only if app doesn't exist
+          az deployment group create \
+            --name $APP_NAME \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --template-file .azure/azure-deploy.json \
+            --parameters \
+              appName=$APP_NAME \
+              planName=medusa-ctf-plan \
+              location=${{ env.LOCATION }}
+        fi
         
         # Wait for deployment to complete
         echo "Waiting for app to be ready..."
