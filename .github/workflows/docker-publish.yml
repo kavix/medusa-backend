@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: kavix/medusa-backend
   CTF_FLAG: Medusa{CTF_CHALLENGE_PHASE1_PASSED}
 
 jobs:

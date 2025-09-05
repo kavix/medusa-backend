@@ -6,8 +6,10 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: medusa-ctf-app
+  AZURE_WEBAPP_NAME: medusa-ctf
   CTF_FLAG: Medusa{CTF_CHALLENGE_PHASE1_PASSED}
+  RESOURCE_GROUP: medusa-ctf-rg
+  LOCATION: southeastasia
 
 jobs:
   deploy:
@@ -22,27 +24,28 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
         
-    - name: Deploy to Azure Container Instances
-      uses: azure/aci-deploy@v1
-      with:
-        resource-group: medusa-ctf-rg
-        dns-name-label: medusa-ctf-${{ github.run_number }}
-        image: ghcr.io/kavix/vulnerable-ctf-app:latest
-        name: medusa-ctf
-        location: eastus
-        ports: 3000
-        environment-variables: |
-          CTF_FLAG=${{ env.CTF_FLAG }}
-          NODE_ENV=production
-        cpu: 1
-        memory: 1
-        
-    - name: Get container URL
+    - name: Deploy to Azure App Service
       run: |
-        URL=$(az container show \
-          --resource-group medusa-ctf-rg \
-          --name medusa-ctf \
-          --query ipAddress.fqdn \
-          --output tsv)
-        echo "🚀 CTF Challenge deployed at: http://$URL:3000"
-        echo "URL=http://$URL:3000" >> $GITHUB_STEP_SUMMARY
+        # Generate unique app name
+        APP_NAME="medusa-ctf-$(date +%s)"
+        
+        # Create resource group if it doesn't exist
+        az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+        
+        # Deploy using ARM template
+        az deployment group create \
+          --name $APP_NAME \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --template-file .azure/azure-deploy.json \
+          --parameters \
+            appName=$APP_NAME \
+            planName=medusa-ctf-plan \
+            location=${{ env.LOCATION }}
+        
+        # Get the deployed URL
+        URL="https://${APP_NAME}.azurewebsites.net"
+        echo "🚀 CTF Challenge deployed at: $URL"
+        echo "## 🚀 Deployment Successful" >> $GITHUB_STEP_SUMMARY
+        echo "**URL**: [$URL]($URL)" >> $GITHUB_STEP_SUMMARY
+        echo "**Flag**: \`${{ env.CTF_FLAG }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Challenge**: Find the SQL injection vulnerability" >> $GITHUB_STEP_SUMMARY
