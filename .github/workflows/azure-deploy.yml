@@ -2,8 +2,15 @@ name: Deploy to Azure
 
 on:
   push:
+    branches: [ main, develop, feature/* ]  # Deploy from any branch
+  pull_request:
     branches: [ main ]
-  workflow_dispatch:
+    types: [ closed ]  # Deploy when PR is merged
+  workflow_dispatch:  # Manual deployment
+  workflow_run:
+    workflows: ["Build & Publish Docker Images"]
+    types: [ completed ]
+    branches: [ main ]
 
 env:
   AZURE_WEBAPP_NAME: medusa-ctf
