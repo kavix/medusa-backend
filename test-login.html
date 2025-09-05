@@ -1,12 +1,27 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Login Test</title>
     <style>
-        .error { color: red; background: #ffe6e6; padding: 10px; margin: 10px 0; border: 1px solid red; }
-        .success { color: green; background: #e6ffe6; padding: 10px; margin: 10px 0; border: 1px solid green; }
+        .error {
+            color: red;
+            background: #ffe6e6;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid red;
+        }
+
+        .success {
+            color: green;
+            background: #e6ffe6;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid green;
+        }
     </style>
 </head>
+
 <body>
     <h2>Login Test</h2>
     <form id="loginForm">
@@ -28,7 +43,7 @@
 
             // Simulate API call
             console.log('Testing with:', username, password);
-            
+
             // Mock response for testing
             let mockResponse = {
                 ok: false,
@@ -64,4 +79,5 @@
         };
     </script>
 </body>
+
 </html>

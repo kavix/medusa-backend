@@ -1,16 +1,25 @@
-# Vulnerable CTF Application - SQL Injection Challenge
+# Vulnerable CTF Application - SQL Injection Challenge (React Frontend)
 
-This is an intentionally vulnerable web application designed for Capture The Flag (CTF) challenges. The application contains a deliberate SQL injection vulnerability for educational purposes.
+This is an intentionally vulnerable web application designed for Capture The Flag (CTF) challenges. The application features a modern React frontend and contains a deliberate SQL injection vulnerability for educational purposes.
 
 ## ⚠️ WARNING ⚠️
 This application is INTENTIONALLY VULNERABLE and should NEVER be deployed in a production environment. It is designed for educational purposes and CTF challenges only.
 
 ## Challenge Overview
-https://medusa-ctf-1757080133.azurewebsites.net/
+https://medusa-ctf-production.azurewebsites.net/
 
 **Goal:** Login as the `admin` user without knowing the password  
 **Flag:** `Medusa{CTF_CHALLENGE_PHASE1_PASSED}` (sent as HTTP response header)  
-**Vulnerability:** SQL Injection in the login form
+**Vulnerability:** SQL Injection in the login form  
+**Frontend:** Modern React application with Vite build system
+
+## Technology Stack
+
+- **Frontend:** React 19 with Vite
+- **Backend:** Node.js with Express
+- **Database:** SQLite
+- **Deployment:** Azure App Service with Docker
+- **CI/CD:** GitHub Actions
 
 ## Quick Start
 
@@ -23,7 +32,7 @@ https://medusa-ctf-1757080133.azurewebsites.net/
 This script will automatically:
 1. Stop and cleanup existing containers
 2. Rebuild the database
-3. Build and start the Docker container
+3. Build React frontend and Docker container
 4. Run automated tests
 5. Show application status
 
@@ -36,7 +45,7 @@ This script will automatically:
 
 ### Option 2: Docker Compose
 
-1. Build and start:
+1. Build and start (includes React build):
 ```bash
 docker-compose up --build -d
 ```
@@ -48,7 +57,7 @@ http://localhost:3000
 
 ### Option 3: Manual Docker
 
-1. Build the Docker container:
+1. Build the Docker container (includes React build):
 ```bash
 docker build -t vulnerable-ctf-app .
 ```
@@ -75,19 +84,43 @@ npm install
 npm run setup
 ```
 
-3. Set the flag environment variable (optional):
+3. Build React frontend:
+```bash
+npm run build
+```
+
+4. Set the flag environment variable (optional):
 ```bash
 export CTF_FLAG="Medusa{CTF_CHALLENGE_PHASE1_PASSED}"
 ```
 
-4. Start the server:
+5. Start the server:
 ```bash
 npm start
 ```
 
-5. Access the application:
+6. Access the application:
 ```
 http://localhost:3000
+```
+
+### Development Mode (React + Backend)
+
+For development with hot reloading:
+
+1. Start the backend server:
+```bash
+npm run dev
+```
+
+2. In another terminal, start the React dev server:
+```bash
+npm run dev-frontend
+```
+
+3. Access the React dev server:
+```
+http://localhost:5173
 ```
 
 ## Restart Script
@@ -192,16 +225,52 @@ Even though the application is vulnerable to SQL injection, it includes several 
 
 ```
 vulnerable-ctf-app/
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx         # Main React component
+│   │   ├── main.jsx        # React entry point
+│   │   └── index.css       # Styling (Matrix theme)
+│   └── index.html          # HTML template
+├── dist/                   # Built React files (generated)
 ├── src/
-│   └── index.html          # Frontend with login form
+│   └── index.html          # Legacy HTML (kept for reference)
 ├── database-setup.js       # Database initialization script
 ├── server.js              # Express server with vulnerable endpoint
 ├── package.json           # Node.js dependencies
-├── Dockerfile             # Container configuration
+├── vite.config.js         # Vite build configuration
+├── Dockerfile             # Container configuration (includes React build)
 ├── docker-compose.yml     # Docker Compose configuration
 ├── restart.sh             # One-command restart script
 ├── test-sqli.js          # Automated test script
 └── README.md             # This file
+```
+
+## React Frontend Features
+
+The React frontend includes:
+- Modern component-based architecture
+- Loading states for better UX
+- Enhanced error handling and display
+- Responsive design with Matrix-inspired styling
+- Proper form validation
+- CTF flag display with visual emphasis
+- Automatic redirection after successful login
+
+## Available Scripts
+
+```bash
+# Backend
+npm start                  # Start production server
+npm run dev               # Start development server with flag
+npm run setup             # Initialize database
+
+# Frontend
+npm run build             # Build React app for production
+npm run dev-frontend      # Start React dev server
+npm run preview           # Preview built React app
+
+# Combined
+npm run build-and-start   # Build React + start server
 ```
 
 ## How the Vulnerability Works
