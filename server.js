@@ -57,7 +57,7 @@ app.post('/login', (req, res) => {
             res.setHeader('X-CTF-Flag', CTF_FLAG);
             return res.json({
                 success: true,
-                message: 'Login successful! Check the response headers for your reward.'
+                message: 'Login successful! Check the response headers ASAP for more rewards.'
             });
         } else {
             // For any other case (no row, non-admin user, etc.)
