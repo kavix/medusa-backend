@@ -6,6 +6,7 @@ This is an intentionally vulnerable web application designed for Capture The Fla
 This application is INTENTIONALLY VULNERABLE and should NEVER be deployed in a production environment. It is designed for educational purposes and CTF challenges only.
 
 ## Challenge Overview
+https://medusa-ctf-1757080133.azurewebsites.net/
 
 **Goal:** Login as the `admin` user without knowing the password  
 **Flag:** `Medusa{CTF_CHALLENGE_PHASE1_PASSED}` (sent as HTTP response header)  
