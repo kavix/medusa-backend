@@ -1,0 +1,181 @@
+name: Smart Deploy & Auto Cleanup
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      cleanup_only:
+        description: 'Run cleanup only (no deployment)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  CTF_FLAG: Medusa{CTF_CHALLENGE_PHASE1_PASSED}
+  RESOURCE_GROUP: medusa-ctf-rg
+  LOCATION: southeastasia
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.cleanup_only != 'true'
+    
+    outputs:
+      app_name: ${{ steps.deploy_step.outputs.app_name }}
+      app_url: ${{ steps.deploy_step.outputs.app_url }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Build React frontend
+      run: npm run build
+      
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Smart Deploy
+      id: deploy_step
+      run: |
+        COMMIT_SHORT=${GITHUB_SHA::7}
+        APP_NAME="medusa-main-${COMMIT_SHORT}"
+        
+        echo "🚀 Smart deploying commit $COMMIT_SHORT"
+        echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+        echo "app_url=https://${APP_NAME}.azurewebsites.net" >> $GITHUB_OUTPUT
+        
+        # Create resource group if it doesn't exist
+        az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+        
+        # Deploy new app
+        echo "Creating new app: $APP_NAME"
+        az deployment group create \
+          --name $APP_NAME \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --template-file .azure/azure-deploy.json \
+          --parameters \
+            appName=$APP_NAME \
+            planName=medusa-ctf-plan \
+            location=${{ env.LOCATION }}
+        
+        # Wait for deployment to complete
+        echo "Waiting for app to be ready..."
+        sleep 30
+        
+        # Test the deployed app
+        URL="https://${APP_NAME}.azurewebsites.net"
+        for i in {1..10}; do
+          if curl -f -s "$URL" > /dev/null; then
+            echo "✅ App is responding at $URL"
+            break
+          fi
+          echo "Waiting for app to start... (attempt $i/10)"
+          sleep 15
+        done
+
+  auto_cleanup:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always() && (success() || github.event.inputs.cleanup_only == 'true')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+        
+    - name: Automated Smart Cleanup
+      run: |
+        echo "🧹 Running fully automated smart cleanup..."
+        
+        RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
+        
+        # Get all web apps with creation times
+        apps_json=$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[].{name:name, createdTime:createdTime}" -o json)
+        
+        if [ -z "$apps_json" ] || [ "$apps_json" = "[]" ]; then
+            echo "❌ No web apps found"
+            exit 0
+        fi
+        
+        total_apps=$(echo "$apps_json" | jq '. | length')
+        echo "📊 Found $total_apps total apps"
+        
+        if [ "$total_apps" -le 1 ]; then
+            echo "✅ Only one app found, no cleanup needed"
+            exit 0
+        fi
+        
+        # Find latest app
+        latest_app=$(echo "$apps_json" | jq -r 'sort_by(.createdTime) | last | .name')
+        echo "🎯 Latest app: $latest_app"
+        
+        # Get apps to delete
+        apps_to_delete=$(echo "$apps_json" | jq -r --arg latest "$latest_app" '.[] | select(.name != $latest) | .name')
+        
+        if [ -z "$apps_to_delete" ]; then
+            echo "✅ No apps to delete"
+            exit 0
+        fi
+        
+        # Delete old apps
+        deleted=0
+        failed=0
+        echo "🗑️ Deleting old apps:"
+        for app in $apps_to_delete; do
+            echo "Deleting: $app"
+            if az webapp delete --name "$app" --resource-group "$RESOURCE_GROUP" --only-show-errors; then
+                echo "✅ Deleted: $app"
+                deleted=$((deleted + 1))
+            else
+                echo "❌ Failed: $app"
+                failed=$((failed + 1))
+            fi
+        done
+        
+        echo ""
+        echo "🎉 Cleanup complete!"
+        echo "📈 Deleted: $deleted apps"
+        echo "❌ Failed: $failed apps"
+        echo "🏆 Kept: $latest_app"
+        
+        # Final verification
+        remaining=$(az webapp list --resource-group "$RESOURCE_GROUP" --query "length([])" -o tsv)
+        echo "📊 Remaining apps: $remaining"
+        
+        # Test the final app
+        app_url="https://${latest_app}.azurewebsites.net"
+        echo "🧪 Testing: $app_url"
+        sleep 10
+        
+        if curl -f -s "$app_url" > /dev/null; then
+            echo "✅ Final app is healthy!"
+        else
+            echo "⚠️ Final app may need time to start"
+        fi
+        
+        # Create summary
+        echo "## 🚀 Smart Deploy & Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+        echo "**Latest App**: \`$latest_app\`" >> $GITHUB_STEP_SUMMARY
+        echo "**URL**: [$app_url]($app_url)" >> $GITHUB_STEP_SUMMARY
+        echo "**Apps Deleted**: $deleted" >> $GITHUB_STEP_SUMMARY
+        echo "**Total Remaining**: $remaining" >> $GITHUB_STEP_SUMMARY
+        echo "**Completed**: $(date)" >> $GITHUB_STEP_SUMMARY

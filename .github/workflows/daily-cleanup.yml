@@ -1,0 +1,118 @@
+name: Daily Automated Cleanup
+
+on:
+  schedule:
+    # Run every day at 3 AM UTC to clean up old deployments
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  RESOURCE_GROUP: medusa-ctf-rg
+
+jobs:
+  daily_cleanup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+        
+    - name: Daily Automated Cleanup
+      run: |
+        echo "🌅 Running daily automated cleanup at $(date)"
+        
+        RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
+        
+        # Get all web apps
+        apps_json=$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[].{name:name, createdTime:createdTime}" -o json)
+        
+        if [ -z "$apps_json" ] || [ "$apps_json" = "[]" ]; then
+            echo "📭 No web apps found - nothing to clean"
+            exit 0
+        fi
+        
+        total_apps=$(echo "$apps_json" | jq '. | length')
+        echo "📊 Found $total_apps web apps"
+        
+        if [ "$total_apps" -le 1 ]; then
+            echo "✅ Only one app exists - no cleanup needed"
+            echo "## 📊 Daily Cleanup Report" >> $GITHUB_STEP_SUMMARY
+            echo "**Status**: ✅ No cleanup needed" >> $GITHUB_STEP_SUMMARY
+            echo "**Total Apps**: $total_apps" >> $GITHUB_STEP_SUMMARY
+            echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+            exit 0
+        fi
+        
+        # Find latest app by creation time
+        latest_app=$(echo "$apps_json" | jq -r 'sort_by(.createdTime) | last | .name')
+        echo "🎯 Latest app to keep: $latest_app"
+        
+        # Get apps to delete (all except latest)
+        apps_to_delete=$(echo "$apps_json" | jq -r --arg latest "$latest_app" '.[] | select(.name != $latest) | .name')
+        
+        if [ -z "$apps_to_delete" ]; then
+            echo "✅ No old apps to delete"
+            exit 0
+        fi
+        
+        delete_count=$(echo "$apps_to_delete" | wc -l)
+        echo "🗑️ Will delete $delete_count old apps:"
+        echo "$apps_to_delete"
+        echo ""
+        
+        # Delete old apps
+        deleted=0
+        failed=0
+        
+        for app_name in $apps_to_delete; do
+            if [ ! -z "$app_name" ]; then
+                echo "🗑️ Deleting: $app_name"
+                if az webapp delete --name "$app_name" --resource-group "$RESOURCE_GROUP" --only-show-errors; then
+                    echo "✅ Successfully deleted: $app_name"
+                    deleted=$((deleted + 1))
+                else
+                    echo "❌ Failed to delete: $app_name"
+                    failed=$((failed + 1))
+                fi
+            fi
+        done
+        
+        echo ""
+        echo "🎉 Daily cleanup completed!"
+        echo "📊 Summary:"
+        echo "  - Started with: $total_apps apps"
+        echo "  - Deleted: $deleted apps"
+        echo "  - Failed: $failed deletions"
+        echo "  - Remaining: 1 app ($latest_app)"
+        
+        # Verify final state
+        final_count=$(az webapp list --resource-group "$RESOURCE_GROUP" --query "length([])" -o tsv)
+        echo "✅ Final verification: $final_count apps remaining"
+        
+        # Test the remaining app
+        app_url="https://${latest_app}.azurewebsites.net"
+        echo "🧪 Testing remaining app: $app_url"
+        
+        if curl -f -s "$app_url" > /dev/null; then
+            echo "✅ Remaining app is healthy!"
+            app_status="✅ Healthy"
+        else
+            echo "⚠️ Remaining app may need attention"
+            app_status="⚠️ Check needed"
+        fi
+        
+        # Create GitHub Actions summary
+        echo "## 🌅 Daily Cleanup Report" >> $GITHUB_STEP_SUMMARY
+        echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**Initial Apps**: $total_apps" >> $GITHUB_STEP_SUMMARY
+        echo "**Apps Deleted**: $deleted" >> $GITHUB_STEP_SUMMARY
+        echo "**Failed Deletions**: $failed" >> $GITHUB_STEP_SUMMARY
+        echo "**Final Apps**: $final_count" >> $GITHUB_STEP_SUMMARY
+        echo "**Kept App**: \`$latest_app\`" >> $GITHUB_STEP_SUMMARY
+        echo "**App Status**: $app_status" >> $GITHUB_STEP_SUMMARY
+        echo "**URL**: [$app_url]($app_url)" >> $GITHUB_STEP_SUMMARY

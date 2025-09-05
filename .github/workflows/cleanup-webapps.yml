@@ -1,15 +1,20 @@
-name: Cleanup Azure Web Apps
+name: Automated Azure Web Apps Cleanup
 
 on:
   workflow_dispatch:  # Manual trigger
     inputs:
-      confirm_cleanup:
-        description: 'Type "DELETE" to confirm cleanup of old web apps'
-        required: true
-        default: ''
+      force_cleanup:
+        description: 'Force cleanup (will delete all except latest)'
+        required: false
+        type: boolean
+        default: false
   schedule:
-    # Run cleanup every day at 2 AM UTC (optional - remove if you don't want automatic cleanup)
+    # Run cleanup every day at 2 AM UTC
     - cron: '0 2 * * *'
+  workflow_run:
+    # Run after deployments complete
+    workflows: ["Auto Deploy on Every Commit", "Deploy to Azure"]
+    types: [completed]
 
 env:
   RESOURCE_GROUP: medusa-ctf-rg
@@ -22,12 +27,12 @@ jobs:
     - name: Validate manual trigger
       if: github.event_name == 'workflow_dispatch'
       run: |
-        if [ "${{ github.event.inputs.confirm_cleanup }}" != "DELETE" ]; then
-          echo "❌ Manual cleanup requires typing 'DELETE' to confirm"
-          echo "You entered: '${{ github.event.inputs.confirm_cleanup }}'"
-          exit 1
+        echo "🔧 Manual cleanup triggered"
+        if [ "${{ github.event.inputs.force_cleanup }}" = "true" ]; then
+          echo "✅ Force cleanup enabled - proceeding with automated cleanup"
+        else
+          echo "ℹ️  Regular manual cleanup - proceeding with automated cleanup"
         fi
-        echo "✅ Manual cleanup confirmed"
     
     - name: Checkout code
       uses: actions/checkout@v4
@@ -40,10 +45,89 @@ jobs:
     - name: Install jq for JSON processing
       run: sudo apt-get update && sudo apt-get install -y jq
         
-    - name: Run cleanup script
+    - name: Run automated cleanup
       run: |
-        echo "🧹 Starting Azure web app cleanup..."
-        ./cleanup-latest-only.sh
+        echo "🧹 Starting automated Azure web app cleanup..."
+        
+        RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
+        
+        echo "🔍 Finding all web apps in resource group: $RESOURCE_GROUP"
+        
+        # Get all web apps with their creation times
+        apps_json=$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[].{name:name, createdTime:createdTime}" -o json)
+        
+        if [ -z "$apps_json" ] || [ "$apps_json" = "[]" ]; then
+            echo "❌ No web apps found in resource group $RESOURCE_GROUP"
+            exit 0
+        fi
+        
+        # Count total apps
+        total_apps=$(echo "$apps_json" | jq '. | length')
+        echo "📊 Found $total_apps web apps total"
+        
+        if [ "$total_apps" -le 1 ]; then
+            echo "✅ Only one or no apps found, no cleanup needed"
+            exit 0
+        fi
+        
+        # Find the latest app by creation time
+        latest_app=$(echo "$apps_json" | jq -r 'sort_by(.createdTime) | last | .name')
+        echo "🎯 Latest app identified: $latest_app"
+        
+        # Get all apps except the latest one
+        apps_to_delete=$(echo "$apps_json" | jq -r --arg latest "$latest_app" '.[] | select(.name != $latest) | .name')
+        
+        if [ -z "$apps_to_delete" ]; then
+            echo "✅ No apps to delete"
+            exit 0
+        fi
+        
+        echo "🗑️  Apps to be deleted:"
+        echo "$apps_to_delete"
+        echo ""
+        
+        # Delete old apps (fully automated)
+        deleted_count=0
+        failed_count=0
+        
+        echo "🧹 Starting automated cleanup..."
+        for app_name in $apps_to_delete; do
+            if [ ! -z "$app_name" ]; then
+                echo "Deleting: $app_name"
+                if az webapp delete --name "$app_name" --resource-group "$RESOURCE_GROUP" --only-show-errors; then
+                    echo "✅ Successfully deleted: $app_name"
+                    deleted_count=$((deleted_count + 1))
+                else
+                    echo "❌ Failed to delete: $app_name"
+                    failed_count=$((failed_count + 1))
+                fi
+            fi
+        done
+        
+        echo ""
+        echo "🎉 Automated cleanup completed!"
+        echo "📈 Apps deleted: $deleted_count"
+        echo "❌ Failed deletions: $failed_count"
+        echo "🏆 Kept latest app: $latest_app"
+        
+        # Show remaining apps
+        echo ""
+        echo "📋 Remaining apps:"
+        az webapp list --resource-group "$RESOURCE_GROUP" --query "[].{Name:name, CreatedTime:createdTime, Url:defaultHostName}" --output table
+        
+        # Test the remaining app
+        echo ""
+        echo "🧪 Testing remaining app..."
+        app_url="https://${latest_app}.azurewebsites.net"
+        
+        # Wait a moment for any restart to complete
+        sleep 10
+        
+        if curl -f -s "$app_url" > /dev/null; then
+            echo "✅ App is responding: $app_url"
+        else
+            echo "⚠️  App may not be responding: $app_url"
+        fi
         
     - name: Generate cleanup report
       run: |
