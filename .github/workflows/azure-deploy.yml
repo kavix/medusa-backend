@@ -1,0 +1,48 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: medusa-ctf-app
+  CTF_FLAG: Medusa{CTF_CHALLENGE_PHASE1_PASSED}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Deploy to Azure Container Instances
+      uses: azure/aci-deploy@v1
+      with:
+        resource-group: medusa-ctf-rg
+        dns-name-label: medusa-ctf-${{ github.run_number }}
+        image: ghcr.io/kavix/vulnerable-ctf-app:latest
+        name: medusa-ctf
+        location: eastus
+        ports: 3000
+        environment-variables: |
+          CTF_FLAG=${{ env.CTF_FLAG }}
+          NODE_ENV=production
+        cpu: 1
+        memory: 1
+        
+    - name: Get container URL
+      run: |
+        URL=$(az container show \
+          --resource-group medusa-ctf-rg \
+          --name medusa-ctf \
+          --query ipAddress.fqdn \
+          --output tsv)
+        echo "🚀 CTF Challenge deployed at: http://$URL:3000"
+        echo "URL=http://$URL:3000" >> $GITHUB_STEP_SUMMARY

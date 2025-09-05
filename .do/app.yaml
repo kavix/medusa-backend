@@ -1,0 +1,23 @@
+name: medusa-ctf-challenge
+services:
+  - name: web
+    source_dir: /
+    github:
+      repo: kavix/vulnerable-ctf-app
+      branch: main
+      deploy_on_push: true
+    run_command: node server.js
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    http_port: 3000
+    health_check:
+      http_path: /
+    envs:
+      - key: CTF_FLAG
+        value: "Medusa{CTF_CHALLENGE_PHASE1_PASSED}"
+      - key: NODE_ENV
+        value: "production"
+      - key: PORT
+        value: "3000"
+region: n
