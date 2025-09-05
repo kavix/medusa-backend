@@ -19,7 +19,46 @@ https://medusa-ctf-production.azurewebsites.net/
 - **Backend:** Node.js with Express
 - **Database:** SQLite
 - **Deployment:** Azure App Service with Docker
-- **CI/CD:** GitHub Actions
+- **CI/CD:** GitHub Actions with Automated Cleanup
+
+## 🤖 Automated Workflows
+
+This project includes several automated GitHub Actions workflows for seamless deployment and resource management:
+
+### 1. **Auto Deploy on Every Commit** (`auto-deploy.yml`)
+- ✅ Triggers on every push to any branch
+- ✅ Creates unique deployments per commit
+- ✅ Automatically cleans up old deployments after each push
+- ✅ Keeps only the latest deployment
+
+### 2. **Smart Deploy & Cleanup** (`smart-deploy-cleanup.yml`)
+- ✅ Focused on main branch deployments
+- ✅ Intelligent cleanup logic
+- ✅ Can be run manually for cleanup-only operations
+- ✅ Comprehensive deployment summaries
+
+### 3. **Daily Automated Cleanup** (`daily-cleanup.yml`)
+- ✅ Runs daily at 3 AM UTC
+- ✅ Ensures only the latest deployment remains
+- ✅ Prevents resource accumulation
+- ✅ Can be triggered manually anytime
+
+### 4. **Azure Deploy** (`azure-deploy.yml`)
+- ✅ Handles main branch and PR deployments
+- ✅ Includes post-deployment cleanup
+- ✅ SQL injection testing
+- ✅ Deployment verification
+
+### 5. **Manual Cleanup** (`cleanup-webapps.yml`)
+- ✅ On-demand cleanup workflow
+- ✅ Works with scheduled runs
+- ✅ Detailed cleanup reports
+
+**All workflows automatically:**
+- 🧹 Keep only the most recently created Azure web app
+- 🗑️ Delete all older deployments
+- 🧪 Test the remaining deployment
+- 📊 Provide detailed reports in GitHub Actions summaries
 
 ## Quick Start
 
