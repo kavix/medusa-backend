@@ -17,7 +17,7 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy application source code
 COPY . .
 
-# Build React frontend
+# Build React frontend (vite.config.js uses frontend as root)
 RUN npm run build
 
 # Run database setup as root (needed for file creation)

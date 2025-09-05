@@ -64,7 +64,6 @@ coverage/
 # Exclude build artifacts
 dist/
 build/
-frontend/
 
 # Exclude shell scripts (not needed in container)
 restart.sh
