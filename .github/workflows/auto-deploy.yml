@@ -95,32 +95,18 @@ jobs:
     if: always()
     
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
     - name: Login to Azure
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
         
-    - name: Cleanup old deployments
+    - name: Install jq for JSON processing
+      run: sudo apt-get update && sudo apt-get install -y jq
+        
+    - name: Cleanup old deployments (keep only latest)
       run: |
-        echo "🧹 Cleaning up old deployments..."
-        
-        # List all web apps in the resource group
-        apps=$(az webapp list --resource-group ${{ env.RESOURCE_GROUP }} --query "[].name" -o tsv)
-        
-        # Keep only the 3 most recent apps
-        app_count=$(echo "$apps" | wc -l)
-        if [ $app_count -gt 3 ]; then
-          echo "Found $app_count apps, keeping 3 most recent"
-          
-          # Sort apps by creation time and delete older ones
-          az webapp list --resource-group ${{ env.RESOURCE_GROUP }} \
-            --query "sort_by([], &createdTime)[:-3].name" -o tsv | \
-          while read app_name; do
-            if [ ! -z "$app_name" ]; then
-              echo "Deleting old app: $app_name"
-              az webapp delete --resource-group ${{ env.RESOURCE_GROUP }} --name "$app_name" || true
-            fi
-          done
-        else
-          echo "Only $app_count apps found, no cleanup needed"
-        fi
+        echo "🧹 Running smart cleanup to keep only the latest deployment..."
+        ./cleanup-latest-only.sh

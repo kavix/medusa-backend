@@ -1,0 +1,75 @@
+name: Cleanup Azure Web Apps
+
+on:
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      confirm_cleanup:
+        description: 'Type "DELETE" to confirm cleanup of old web apps'
+        required: true
+        default: ''
+  schedule:
+    # Run cleanup every day at 2 AM UTC (optional - remove if you don't want automatic cleanup)
+    - cron: '0 2 * * *'
+
+env:
+  RESOURCE_GROUP: medusa-ctf-rg
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Validate manual trigger
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        if [ "${{ github.event.inputs.confirm_cleanup }}" != "DELETE" ]; then
+          echo "❌ Manual cleanup requires typing 'DELETE' to confirm"
+          echo "You entered: '${{ github.event.inputs.confirm_cleanup }}'"
+          exit 1
+        fi
+        echo "✅ Manual cleanup confirmed"
+    
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Install jq for JSON processing
+      run: sudo apt-get update && sudo apt-get install -y jq
+        
+    - name: Run cleanup script
+      run: |
+        echo "🧹 Starting Azure web app cleanup..."
+        ./cleanup-latest-only.sh
+        
+    - name: Generate cleanup report
+      run: |
+        echo "## 🧹 Azure Web Apps Cleanup Report" >> $GITHUB_STEP_SUMMARY
+        echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**Resource Group**: ${{ env.RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Show remaining apps
+        echo "### 📋 Remaining Web Apps:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        az webapp list --resource-group ${{ env.RESOURCE_GROUP }} --query "[].{Name:name, CreatedTime:createdTime, Url:defaultHostName}" --output table >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        
+        # Count remaining apps
+        remaining_count=$(az webapp list --resource-group ${{ env.RESOURCE_GROUP }} --query "length([])" -o tsv)
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Total apps remaining**: $remaining_count" >> $GITHUB_STEP_SUMMARY
+        
+        # Show latest app details
+        if [ "$remaining_count" -gt 0 ]; then
+          latest_app=$(az webapp list --resource-group ${{ env.RESOURCE_GROUP }} --query "sort_by([], &createdTime) | last | .name" -o tsv)
+          latest_url="https://${latest_app}.azurewebsites.net"
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Latest App (Kept):" >> $GITHUB_STEP_SUMMARY
+          echo "- **Name**: \`$latest_app\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: [$latest_url]($latest_url)" >> $GITHUB_STEP_SUMMARY
+        fi
