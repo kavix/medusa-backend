@@ -164,24 +164,29 @@
             const password = document.getElementById('password').value;
             const messageDiv = document.getElementById('message');
 
+            // Clear previous messages
+            messageDiv.innerHTML = '';
+
             try {
                 const response = await fetch('/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
+                
                 const data = await response.json();
 
-                if (data.success) {
+                if (response.ok && data.success) {
                     messageDiv.innerHTML = `<div class="success">${data.message || 'Login successful!'}</div>`;
                     setTimeout(() => {
                         window.location.href = 'https://kodegas.com';
                     }, 3000); // Redirect after 3 seconds
                 } else {
-                    messageDiv.innerHTML = `<div class="error">${data.message}</div>`;
+                    // Handle both 401 errors and success:false responses
+                    messageDiv.innerHTML = `<div class="error">${data.message || 'Login failed'}</div>`;
                 }
             } catch (error) {
-                messageDiv.innerHTML = `<div class="error">Network error</div>`;
+                messageDiv.innerHTML = `<div class="error">Network error: ${error.message}</div>`;
             }
         };
     </script>
