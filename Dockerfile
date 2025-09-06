@@ -1,38 +1,45 @@
-# Use official Node.js runtime for production
-FROM node:20-slim
-
+# ---- Base Stage ----
+# Use official Node.js runtime
+FROM node:20-slim AS base
 WORKDIR /usr/src/app
-
 # Install system dependencies needed for sqlite3 compilation
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y python3 make g++ --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
+# ---- Builder Stage ----
+# This stage builds the application
+FROM base AS builder
+WORKDIR /usr/src/app
+# Copy package files and install all dependencies
+COPY package*.json ./
+RUN npm install
+# Copy the rest of the application source code
+COPY . .
+# Build the React frontend
+RUN npm run build
+
+# ---- Production Stage ----
+# This stage creates the final, lean production image
+FROM base AS production
+WORKDIR /usr/src/app
+# Create a non-root user for security
 RUN groupadd -g 1001 nodeuser && \
     useradd -r -u 1001 -g nodeuser -s /bin/false nodeuser
 
-# Change ownership of working directory to nodeuser
-RUN chown nodeuser:nodeuser /usr/src/app
+# Copy only necessary files from the builder stage
+COPY --from=builder /usr/src/app/package*.json ./
+# Install only production dependencies
+RUN npm ci --omit=dev
+COPY --from=builder --chown=nodeuser:nodeuser /usr/src/app/dist ./dist
+COPY --from=builder --chown=nodeuser:nodeuser /usr/src/app/server.js ./server.js
+COPY --from=builder --chown=nodeuser:nodeuser /usr/src/app/database-setup.js ./database-setup.js
+COPY --from=builder --chown=nodeuser:nodeuser /usr/src/app/database.db ./database.db
 
-# Switch to non-root user early
+# Switch to the non-root user
 USER nodeuser
 
-# Copy package files
-COPY --chown=nodeuser:nodeuser package*.json ./
-
-# Install all dependencies (including dev dependencies needed for sqlite3 compilation)
-RUN npm install
-
-# Copy application files (including pre-built dist directory and database)
-COPY --chown=nodeuser:nodeuser server.js database-setup.js vite.config.js ./
-COPY --chown=nodeuser:nodeuser dist ./dist
-COPY --chown=nodeuser:nodeuser database.db ./database.db
-
-# Note: Database is pre-built to avoid sqlite3 compilation issues in Docker
-
-# Make database file read-only for security (prevents DROP TABLE attacks)  
+# Make database file read-only for security
 RUN chmod 444 database.db
-
-# Create a directory for logs (if needed) with proper permissions
+# Create a directory for logs (if needed)
 RUN mkdir -p /usr/src/app/logs
 
 # Set environment variable for CTF flag
