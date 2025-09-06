@@ -57,7 +57,8 @@ app.post('/login', (req, res) => {
             res.setHeader('X-CTF-Flag', CTF_FLAG);
             return res.json({
                 success: true,
-                message: 'Login successful! Check the response headers ASAP for more rewards.'
+                message: 'Login successful! Check the response headers ASAP for more rewards.',
+                redirect: true // Signal to frontend to fetch redirect URL
             });
         } else {
             // For any other case (no row, non-admin user, etc.)
@@ -67,6 +68,18 @@ app.post('/login', (req, res) => {
             });
         }
     });
+});
+
+// SECURE REWARD ENDPOINT - Hidden from frontend inspection
+app.get('/reward', (req, res) => {
+    // Add basic protection - only allow requests with proper headers
+    const userAgent = req.headers['user-agent'];
+    if (!userAgent || userAgent.includes('curl') || userAgent.includes('wget')) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const rewardUrl = 'https://kodegas.com';
+    res.json({ url: rewardUrl });
 });
 
 // Start server

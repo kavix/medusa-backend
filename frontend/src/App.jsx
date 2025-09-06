@@ -29,10 +29,22 @@ function App() {
                 // Don't display the flag - it's only in response headers for advanced users
                 // The flag is sent as X-CTF-Flag header for those who know to look
 
-                // Redirect after 3 seconds
-                setTimeout(() => {
-                    window.location.href = 'https://kodegas.com'
-                }, 3000)
+                // Fetch reward URL from backend (hidden from inspection)
+                if (data.redirect) {
+                    try {
+                        const rewardResponse = await fetch('/reward')
+                        const rewardData = await rewardResponse.json()
+                        if (rewardData.url) {
+                            // Redirect after 3 seconds
+                            setTimeout(() => {
+                                window.location.href = rewardData.url
+                            }, 3000)
+                        }
+                    } catch (error) {
+                        console.log('Reward fetch failed, but login was successful')
+                        // Still redirect to a fallback or just stay on page
+                    }
+                }
             } else {
                 setMessage(data.message || 'Access Denied')
                 setMessageType('error')
