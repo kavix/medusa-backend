@@ -66,7 +66,7 @@ function App() {
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </div>
-                    <h1 className="title">Medusa 2.0</h1>
+                    <h1 className="title">MEDUSA 2.0</h1>
                     <p className="subtitle">SECURE LOGIN PORTAL</p>
                 </div>
 

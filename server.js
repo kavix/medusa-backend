@@ -78,7 +78,7 @@ app.get('/reward', (req, res) => {
         return res.status(403).json({ error: 'Access denied' });
     }
 
-    const rewardUrl = 'https://kodegas.com';
+    const rewardUrl = 'https://lankacnews.com';
     res.json({ url: rewardUrl });
 });
 
