@@ -1,39 +1,39 @@
-# Use official Node.js runtime as base image
-FROM node:20-alpine
+# Use official Node.js runtime for production
+FROM node:20-slim
 
-# Create app directory
 WORKDIR /usr/src/app
 
+# Install system dependencies needed for sqlite3 compilation
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user
-RUN addgroup -g 1001 -S nodeuser && \
-    adduser -S -D -H -u 1001 -s /sbin/nologin nodeuser
+RUN groupadd -g 1001 nodeuser && \
+    useradd -r -u 1001 -g nodeuser -s /bin/false nodeuser
 
-# Copy package.json and package-lock.json (if available)
-COPY package*.json ./
+# Change ownership of working directory to nodeuser
+RUN chown nodeuser:nodeuser /usr/src/app
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Switch to non-root user early
+USER nodeuser
 
-# Copy application source code
-COPY . .
+# Copy package files
+COPY --chown=nodeuser:nodeuser package*.json ./
 
-# Build React frontend (vite.config.js uses frontend as root)
-RUN npm run build
+# Install all dependencies (including dev dependencies needed for sqlite3 compilation)
+RUN npm install
 
-# Run database setup as root (needed for file creation)
-RUN node database-setup.js
+# Copy application files (including pre-built dist directory and database)
+COPY --chown=nodeuser:nodeuser server.js database-setup.js vite.config.js ./
+COPY --chown=nodeuser:nodeuser dist ./dist
+COPY --chown=nodeuser:nodeuser database.db ./database.db
 
-# Change ownership of all application files to nodeuser
-RUN chown -R nodeuser:nodeuser /usr/src/app
+# Note: Database is pre-built to avoid sqlite3 compilation issues in Docker
 
-# Make database file read-only for security (prevents DROP TABLE attacks)
+# Make database file read-only for security (prevents DROP TABLE attacks)  
 RUN chmod 444 database.db
 
 # Create a directory for logs (if needed) with proper permissions
-RUN mkdir -p /usr/src/app/logs && chown nodeuser:nodeuser /usr/src/app/logs
-
-# Switch to non-root user
-USER nodeuser
+RUN mkdir -p /usr/src/app/logs
 
 # Set environment variable for CTF flag
 ENV CTF_FLAG="Medusa{CTF_CHALLENGE_PHASE1_PASSED}"
