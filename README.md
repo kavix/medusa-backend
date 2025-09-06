@@ -2,7 +2,6 @@
 
 This is an intentionally vulnerable web application designed for Capture The Flag (CTF) challenges. The application features a modern React frontend and contains a deliberate SQL injection vulnerability for educational purposes.
 
-## ⚠️ WARNING ⚠️
 This application is INTENTIONALLY VULNERABLE and should NEVER be deployed in a production environment. It is designed for educational purposes and CTF challenges only.
 
 ## Challenge Overview
