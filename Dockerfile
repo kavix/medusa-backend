@@ -1,24 +1,41 @@
-# Use official Node.js runtime as base image
-FROM node:20-alpine
+# Multi-stage build to handle different requirements
+# Stage 1: Build stage with all build tools
+FROM node:20 AS builder
 
-# Create app directory
 WORKDIR /usr/src/app
 
-# Create a non-root user
-RUN addgroup -g 1001 -S nodeuser && \
-    adduser -S -D -H -u 1001 -s /sbin/nologin nodeuser
-
-# Copy package.json and package-lock.json (if available)
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy application source code
+# Copy source code first
 COPY . .
 
-# Build React frontend (vite.config.js uses frontend as root)
-RUN npm run build
+# Install all dependencies (including dev dependencies for building)
+RUN npm ci
+
+# Build the React frontend using the direct vite.js path
+RUN node node_modules/vite/bin/vite.js build
+
+# Stage 2: Production stage
+FROM node:20-slim AS production
+
+WORKDIR /usr/src/app
+
+# Install only production dependencies and Python for sqlite3
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN groupadd -g 1001 nodeuser && \
+    useradd -r -u 1001 -g nodeuser -s /bin/false nodeuser
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built application from builder stage
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/server.js ./
+COPY --from=builder /usr/src/app/database-setup.js ./
+COPY --from=builder /usr/src/app/vite.config.js ./
 
 # Run database setup as root (needed for file creation)
 RUN node database-setup.js
