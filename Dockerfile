@@ -14,6 +14,8 @@ COPY package*.json ./
 RUN npm install
 # Copy the rest of the application source code
 COPY . .
+# Set up the database
+RUN npm run setup
 # Build the React frontend
 RUN npm run build
 
