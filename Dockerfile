@@ -27,22 +27,23 @@ WORKDIR /usr/src/app
 RUN groupadd -g 1001 nodeuser && \
     useradd -r -u 1001 -g nodeuser -s /bin/false nodeuser
 
-# Copy only necessary files from the builder stage
+# Copy package files and install only production dependencies
 COPY --from=builder /usr/src/app/package*.json ./
-# Install only production dependencies
 RUN npm ci --omit=dev
-COPY --from=builder --chown=nodeuser:nodeuser /usr/src/app/dist ./dist
-COPY --from=builder --chown=nodeuser:nodeuser /usr/src/app/server.js ./server.js
-COPY --from=builder --chown=nodeuser:nodeuser /usr/src/app/database-setup.js ./database-setup.js
-COPY --from=builder --chown=nodeuser:nodeuser /usr/src/app/database.db ./database.db
 
-# Switch to the non-root user
+# Copy application files from the builder stage
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/server.js ./server.js
+COPY --from=builder /usr/src/app/database-setup.js ./database-setup.js
+COPY --from=builder /usr/src/app/database.db ./database.db
+
+# Create logs directory and set all permissions as root
+RUN mkdir -p /usr/src/app/logs && \
+    chmod 444 database.db && \
+    chown -R nodeuser:nodeuser /usr/src/app
+
+# Switch to the non-root user for runtime
 USER nodeuser
-
-# Make database file read-only for security
-RUN chmod 444 database.db
-# Create a directory for logs (if needed)
-RUN mkdir -p /usr/src/app/logs
 
 # Set environment variable for CTF flag
 ENV CTF_FLAG="Medusa{CTF_CHALLENGE_PHASE1_PASSED}"
