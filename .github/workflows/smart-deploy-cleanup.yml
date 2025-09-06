@@ -62,7 +62,7 @@ jobs:
         
         # Deploy new app with proper output handling
         echo "Creating new app: $APP_NAME"
-        deployment_result=$(az deployment group create \
+        if az deployment group create \
           --name $APP_NAME \
           --resource-group ${{ env.RESOURCE_GROUP }} \
           --template-file .azure/azure-deploy.json \
@@ -70,9 +70,7 @@ jobs:
             appName=$APP_NAME \
             planName=medusa-ctf-plan \
             location=${{ env.LOCATION }} \
-          --output json)
-        
-        if [ $? -eq 0 ]; then
+          --output none; then
           echo "✅ Deployment initiated successfully"
         else
           echo "❌ Deployment failed"
