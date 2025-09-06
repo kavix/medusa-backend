@@ -4,9 +4,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Exclude database files (will be created during build)
-database.db
-*.db
+# Note: database.db included as pre-built database to avoid compilation issues
 
 # Exclude version control
 .git/
@@ -61,8 +59,7 @@ coverage/
 *.lcov
 .nyc_output
 
-# Exclude build artifacts
-dist/
+# Note: dist/ included as it contains pre-built frontend assets
 build/
 
 # Exclude shell scripts (not needed in container)
