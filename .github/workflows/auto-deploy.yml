@@ -33,17 +33,23 @@ jobs:
         echo "🚀 Auto-deploying $BRANCH_NAME branch (commit $COMMIT_SHORT)"
         
         # Create resource group if it doesn't exist
-        az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+        az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }} --output none
         
-        # Deploy using ARM template
-        az deployment group create \
+        # Deploy using ARM template with proper error handling
+        echo "Deploying app: $APP_NAME"
+        if az deployment group create \
           --name $APP_NAME \
           --resource-group ${{ env.RESOURCE_GROUP }} \
           --template-file .azure/azure-deploy.json \
           --parameters \
             appName=$APP_NAME \
             planName=medusa-ctf-plan \
-            location=${{ env.LOCATION }} || true
+            location=${{ env.LOCATION }} \
+          --output none; then
+          echo "✅ Deployment successful"
+        else
+          echo "❌ Deployment failed, but continuing..."
+        fi
         
         # Wait a bit for the app to start
         sleep 30

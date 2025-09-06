@@ -57,18 +57,27 @@ jobs:
         echo "app_url=https://${APP_NAME}.azurewebsites.net" >> $GITHUB_OUTPUT
         
         # Create resource group if it doesn't exist
-        az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+        echo "Creating/checking resource group..."
+        az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }} --output none
         
-        # Deploy new app
+        # Deploy new app with proper output handling
         echo "Creating new app: $APP_NAME"
-        az deployment group create \
+        deployment_result=$(az deployment group create \
           --name $APP_NAME \
           --resource-group ${{ env.RESOURCE_GROUP }} \
           --template-file .azure/azure-deploy.json \
           --parameters \
             appName=$APP_NAME \
             planName=medusa-ctf-plan \
-            location=${{ env.LOCATION }}
+            location=${{ env.LOCATION }} \
+          --output json)
+        
+        if [ $? -eq 0 ]; then
+          echo "✅ Deployment initiated successfully"
+        else
+          echo "❌ Deployment failed"
+          exit 1
+        fi
         
         # Wait for deployment to complete
         echo "Waiting for app to be ready..."
