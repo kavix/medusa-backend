@@ -78,7 +78,7 @@ app.get('/reward', (req, res) => {
         return res.status(403).json({ error: 'Access denied' });
     }
 
-    const rewardUrl = 'https://lankacnews.com';
+    const rewardUrl = 'https://medusa.ecsc-uok.com/7458c148293e2f70830e369ace8d3b9c';
     res.json({ url: rewardUrl });
 });
 
