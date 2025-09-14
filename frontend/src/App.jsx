@@ -41,8 +41,7 @@ function App() {
                             }, 3000)
                         }
                     } catch (error) {
-                        console.log('Reward fetch failed, but login was successful')
-                        // Still redirect to a fallback or just stay on page
+                        // Silent fail
                     }
                 }
             } else {
@@ -58,71 +57,38 @@ function App() {
     }
 
     return (
-        <div className="login-card">
-            <div className="login-content">
-                <div className="header-section">
-                    <div className="shield-icon">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                    </div>
-                    <h1 className="title">MEDUSA 2.0</h1>
-                    <p className="subtitle">SECURE LOGIN PORTAL</p>
-                </div>
-
-                <form className="login-form" onSubmit={handleSubmit}>
-                    <div className="input-container">
-                        <div className="input-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" strokeWidth="2" />
-                                <circle cx="12" cy="16" r="1" fill="currentColor" />
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2" />
-                            </svg>
-                        </div>
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder="Enter username"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="input-container">
-                        <div className="input-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" strokeWidth="2" />
-                                <circle cx="12" cy="16" r="1" fill="currentColor" />
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2" />
-                            </svg>
-                        </div>
-                        <input
-                            type="password"
-                            className="form-input"
-                            placeholder="Enter password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="login-button"
-                        disabled={loading}
-                    >
-                        {loading ? 'Authenticating...' : 'Sign In'}
+        <div className="ctf-wrapper">
+            <div className="ctf-card">
+                <img
+                    src="/medusa.svg"
+                    alt="MEDUSA"
+                    className="ctf-logo"
+                />
+                <p className="ctf-subtitle">You need to SELECT the right approach</p>
+                <form onSubmit={handleSubmit} className="ctf-form">
+                    <input
+                        type="text"
+                        placeholder="Username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                        className="ctf-input"
+                    />
+                    <input
+                        type="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="ctf-input"
+                    />
+                    <button type="submit" className="ctf-button" disabled={loading}>
+                        {loading ? 'Authenticating...' : 'Attempt Login'}
                     </button>
                 </form>
-
                 {message && (
-                    <div className={`message ${messageType}`}>
-                        {message}
-                    </div>
+                    <div className={`ctf-message ${messageType}`}>{message}</div>
                 )}
-
-                <div className="hint">
-                    💡 Security researchers: Test for SQL injection & common vulns
-                </div>
             </div>
         </div>
     )
