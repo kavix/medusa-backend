@@ -54,7 +54,8 @@ body {
     margin: 0 auto 10px;
     max-width: 100%;
     height: auto;
-    max-height: 120px; /* Limit height to fit in card */
+    max-height: 120px;
+    /* Limit height to fit in card */
     object-fit: contain;
 }
 
