@@ -126,13 +126,22 @@ body {
 /* Messages */
 .ctf-message {
     margin-top: 26px;
-    background: #063d17;
-    color: #40ff6f;
-    border: 1px solid #3ae36b;
     padding: 16px 18px 18px;
     font-size: 14px;
     text-align: center;
     border-radius: 6px;
     line-height: 1.35;
     animation: fadeIn .35s ease;
+}
+
+.ctf-message.success {
+    background: #063d17;
+    color: #40ff6f;
+    border: 1px solid #3ae36b;
+}
+
+.ctf-message.error {
+    background: #4a0f0f;
+    color: #ff6b6b;
+    border: 1px solid #dc2626;
 }

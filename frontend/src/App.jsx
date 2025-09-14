@@ -87,7 +87,7 @@ function App() {
                     </button>
                 </form>
                 {message && (
-                    <div className={`ctf-message ${messageType}`}>{message}</div>
+                    <div className={`ctf-message ${messageType === 'success' ? 'success' : 'error'}`}>{message}</div>
                 )}
             </div>
         </div>
