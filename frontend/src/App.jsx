@@ -60,7 +60,7 @@ function App() {
         <div className="ctf-wrapper">
             <div className="ctf-card">
                 <img
-                    src="/medusa.svg"
+                    src="frontend/medusa.svg"
                     alt="MEDUSA"
                     className="ctf-logo"
                 />
